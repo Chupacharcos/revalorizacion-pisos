@@ -1,19 +1,19 @@
 # Detección de Zonas de Revalorización Inmobiliaria
 
-Modelo de scoring de zonas urbanas basado en un **Graph Neural Network (GNN) simplificado** aplicado al mercado inmobiliario de Madrid. Trata cada barrio como un nodo en un grafo de adyacencia geográfica y propaga información entre vecinos mediante *message-passing* para capturar efectos espaciales de gentrificación y revalorización.
+Modelo de scoring de zonas urbanas basado en un **Graph Neural Network (GNN) simplificado**. Trata cada zona como un nodo en un grafo de adyacencia geográfica y propaga información entre vecinos mediante *message-passing* para capturar efectos espaciales de gentrificación y revalorización.
 
-**Demo en vivo:** [portfolio]
+La arquitectura es **independiente de la ciudad**: se adapta a cualquier mercado sustituyendo el dataset de zonas con las coordenadas y features correspondientes.
 
 ---
 
 ## Arquitectura del Modelo
 
 ```
-Features por nodo (barrio)
+Features por nodo (zona urbana)
   ├── tend_1a        → tendencia precio interanual (%) — peso 30%
   ├── infra          → índice inversión infraestructura (0-100) — peso 25%
   ├── licencias      → actividad nuevas licencias (0-100) — peso 20%
-  ├── metro          → líneas de metro a <500m — peso 15%
+  ├── transporte     → acceso a transporte público — peso 15%
   └── tend_3a        → tendencia precio 3 años (%) — peso 10%
 
 GNN Simplificado (2 rounds de message-passing)
@@ -25,8 +25,8 @@ Score final → normalizado a escala 0-100
 
 ### Grafo
 
-- **23 nodos** — barrios de Madrid con features socioeconómicas
-- **40 aristas** — conexiones de proximidad geográfica (~1.5km)
+- **N nodos** — zonas urbanas con features socioeconómicas (demo: 23 zonas)
+- **Aristas** — conexiones de proximidad geográfica (radio configurable, ~1.5km por defecto)
 - **2 rounds** de message-passing espacial
 
 ### Categorías de Score
@@ -38,15 +38,6 @@ Score final → normalizado a escala 0-100
 | ≥ 35  | Media |
 | < 35  | Baja |
 
-### Top barrios detectados
-
-| Barrio | Score | Señales clave |
-|--------|-------|---------------|
-| Tetuán | 90.0 | Infraestructura 88/100, licencias 85/100, +9.8% interanual |
-| Vallecas | 80.5 | +11.5% interanual, tendencia sostenida 3 años |
-| Fuencarral | 80.2 | Alta actividad promotora, buena conectividad |
-| Carabanchel | 77.2 | +10.2% interanual, infraestructura 82/100 |
-
 ---
 
 ## Estructura del proyecto
@@ -55,23 +46,24 @@ Score final → normalizado a escala 0-100
 proyecto-revalorizacion/
 ├── api.py        # FastAPI standalone (puerto 8090)
 ├── router.py     # Endpoints REST (/ml/revalorizacion/*)
-└── data.py       # Dataset de barrios + modelo GNN
+└── data.py       # Dataset de zonas + modelo GNN
 ```
 
 ## Endpoints
 
 ```
-GET /ml/revalorizacion/mapa          → todos los barrios con score y coordenadas
-GET /ml/revalorizacion/barrio/{id}   → análisis detallado de un barrio
+GET /ml/revalorizacion/mapa          → todas las zonas con score y coordenadas
+GET /ml/revalorizacion/barrio/{id}   → análisis detallado de una zona
 GET /ml/revalorizacion/stats         → metadatos del modelo GNN
 ```
 
 ## Arranque local
 
 ```bash
-# Requiere el venv del proyecto chatbot o cualquier entorno con FastAPI
 uvicorn api:app --host 127.0.0.1 --port 8090 --reload
 ```
+
+Requiere Python 3.10+ con FastAPI y NumPy instalados.
 
 ## Stack
 
@@ -80,7 +72,3 @@ uvicorn api:app --host 127.0.0.1 --port 8090 --reload
 - **NumPy** — cómputo vectorial del GNN
 - **Leaflet.js** — mapa interactivo (frontend, en repositorio del portfolio)
 - **CartoDB Dark** — tiles del mapa
-
----
-
-> Proyecto de portfolio — datos sintéticos realistas basados en fuentes públicas (Idealista, INE, Ayuntamiento de Madrid).
