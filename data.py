@@ -218,13 +218,19 @@ _ADJ: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
-WEIGHTS = {"tend_1a": 0.30, "infra": 0.25, "licencias": 0.20, "metro": 0.15, "tend_3a": 0.10}
+WEIGHTS = {"tend_1a": 0.25, "infra": 0.20, "licencias": 0.15, "metro": 0.12, "tend_3a": 0.08}
+# precio_m2 es inverso (barrios más baratos = mayor oportunidad relativa)
+# renta es directa (mayor rentabilidad bruta = mayor score)
+WEIGHTS_EXTRA = {"precio_m2_inv": 0.12, "renta": 0.08}
 
 _cache: Dict[str, Dict] = {}
 
 
 def _build_ranges(barrios):
-    return {f: (min(b[f] for b in barrios), max(b[f] for b in barrios)) for f in WEIGHTS}
+    ranges = {f: (min(b[f] for b in barrios), max(b[f] for b in barrios)) for f in WEIGHTS}
+    ranges["precio_m2"] = (min(b["precio_m2"] for b in barrios), max(b["precio_m2"] for b in barrios))
+    ranges["renta"] = (min(b["renta"] for b in barrios), max(b["renta"] for b in barrios))
+    return ranges
 
 
 def _norm(v, f, ranges):
@@ -233,7 +239,12 @@ def _norm(v, f, ranges):
 
 
 def _local(b, ranges):
-    return sum(WEIGHTS[f] * _norm(b[f], f, ranges) for f in WEIGHTS)
+    score = sum(WEIGHTS[f] * _norm(b[f], f, ranges) for f in WEIGHTS)
+    # precio_m2 invertido: precio más bajo = más oportunidad
+    score += WEIGHTS_EXTRA["precio_m2_inv"] * (1.0 - _norm(b["precio_m2"], "precio_m2", ranges))
+    # renta directa
+    score += WEIGHTS_EXTRA["renta"] * _norm(b["renta"], "renta", ranges)
+    return score
 
 
 def _mp(scores, adj, alpha):
@@ -265,7 +276,27 @@ def _get_signals(barrio):
                      "texto": f"{m} líneas de transporte en radio 500m"})
     if barrio["tend_3a"] >= 24:
         signals.append({"tipo": "positivo", "texto": f"Tendencia sostenida: +{barrio['tend_3a']}% en 3 años"})
+    # Señales de precio y renta
+    p = barrio["precio_m2"]
+    signals.append({"tipo": "positivo" if p < 2500 else "neutro" if p < 5000 else "negativo",
+                     "texto": f"Precio m²: {p:,}€ ({'asequible' if p < 2500 else 'medio' if p < 5000 else 'alto'})"})
+    r = barrio["renta"]
+    signals.append({"tipo": "positivo" if r >= 65 else "neutro" if r >= 40 else "negativo",
+                     "texto": f"Rentabilidad bruta estimada: {r}/100"})
     return signals
+
+
+def _historico_scores(score_actual, tend_1a):
+    """Genera 4 años de histórico sintético razonable basado en tend_1a."""
+    # El score actual ya incorpora la tendencia. Retrotraemos usando tend_1a ajustada.
+    historico = []
+    s = score_actual
+    for year in range(2025, 2021, -1):
+        historico.insert(0, {"year": year, "score": round(s, 1)})
+        # Retroceder: si la tend_1a es alta, el score era menor antes
+        delta = tend_1a * 0.5  # efecto sobre el score normalizado
+        s = max(10, s - delta * 0.8)
+    return historico
 
 
 def _compute(ciudad):
@@ -310,15 +341,23 @@ def get_barrio_detail(barrio_id, ciudad="madrid"):
         return {}
     s = d["scores"][barrio_id]
     loc = _local(b, d["ranges"])
-    breakdown = {f"Tend. 1 año": round(WEIGHTS["tend_1a"] * _norm(b["tend_1a"], "tend_1a", d["ranges"]) / loc * 100, 1),
-                  "Infraestructura": round(WEIGHTS["infra"] * _norm(b["infra"], "infra", d["ranges"]) / loc * 100, 1),
-                  "Nuevas licencias": round(WEIGHTS["licencias"] * _norm(b["licencias"], "licencias", d["ranges"]) / loc * 100, 1),
-                  "Acceso transporte": round(WEIGHTS["metro"] * _norm(b["metro"], "metro", d["ranges"]) / loc * 100, 1),
-                  "Tend. 3 años": round(WEIGHTS["tend_3a"] * _norm(b["tend_3a"], "tend_3a", d["ranges"]) / loc * 100, 1)}
+    total_w = sum(WEIGHTS.values()) + sum(WEIGHTS_EXTRA.values())
+    def bp(feat_val, weight): return round(weight * feat_val / total_w * 100, 1)
+    breakdown = {
+        "Tend. 1 año":     bp(WEIGHTS["tend_1a"] * _norm(b["tend_1a"], "tend_1a", d["ranges"]), 1),
+        "Infraestructura": bp(WEIGHTS["infra"] * _norm(b["infra"], "infra", d["ranges"]), 1),
+        "Nuevas licencias":bp(WEIGHTS["licencias"] * _norm(b["licencias"], "licencias", d["ranges"]), 1),
+        "Acceso transporte":bp(WEIGHTS["metro"] * _norm(b["metro"], "metro", d["ranges"]), 1),
+        "Tend. 3 años":    bp(WEIGHTS["tend_3a"] * _norm(b["tend_3a"], "tend_3a", d["ranges"]), 1),
+        "Precio m² (inv)": bp(WEIGHTS_EXTRA["precio_m2_inv"] * (1.0 - _norm(b["precio_m2"], "precio_m2", d["ranges"])), 1),
+        "Rentabilidad":    bp(WEIGHTS_EXTRA["renta"] * _norm(b["renta"], "renta", d["ranges"]), 1),
+    }
     vecinos = [{"id": n, "nombre": d["index"][n]["nombre"], "score": d["scores"][n], "color": _color(d["scores"][n])}
                for n in d["adj"].get(barrio_id, []) if n in d["index"]]
+    historico = _historico_scores(s, b["tend_1a"])
     return {**b, "score": s, "categoria": _categoria(s), "color": _color(s),
-            "signals": _get_signals(b), "breakdown": breakdown, "vecinos": vecinos, "rounds_mp": 2}
+            "signals": _get_signals(b), "breakdown": breakdown, "vecinos": vecinos,
+            "historico": historico, "rounds_mp": 2}
 
 
 def get_stats(ciudad="madrid"):
