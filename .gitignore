@@ -4,3 +4,4 @@ __pycache__/
 .env
 api.log
 *.log
+artifacts/
