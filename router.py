@@ -30,3 +30,19 @@ def barrio(barrio_id: str, ciudad: str = Query("madrid")):
 def stats(ciudad: str = Query("madrid")):
     from data import get_stats
     return get_stats(ciudad)
+
+
+@router.get("/revalorizacion/data-sources")
+def data_sources():
+    """Fuentes de datos activas (INE, Catastro, Idealista). Idealista se activa
+    cuando IDEALISTA_API_KEY se configure en el .env."""
+    try:
+        from data_sources import get_active_sources, SUPPORTED_CITIES
+        active = get_active_sources()
+        return {
+            "active_sources": active,
+            "supported_cities": SUPPORTED_CITIES,
+            "idealista_enabled": "Idealista" in active,
+        }
+    except Exception as e:
+        return {"active_sources": ["sintético"], "error": str(e)}
