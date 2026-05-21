@@ -25,6 +25,8 @@ app.add_middleware(
 
 from router import router
 app.include_router(router)
+from coverage import router as coverage_router
+app.include_router(coverage_router)
 
 
 @app.get("/")
