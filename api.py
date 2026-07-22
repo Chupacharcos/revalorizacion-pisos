@@ -27,6 +27,8 @@ from router import router
 app.include_router(router)
 from coverage import router as coverage_router
 app.include_router(coverage_router)
+from visualizacion import router as visualizacion_router
+app.include_router(visualizacion_router)
 
 
 @app.get("/")
