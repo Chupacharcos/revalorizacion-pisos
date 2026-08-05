@@ -143,3 +143,40 @@ uvicorn api:app --host 127.0.0.1 --port 8090 --reload
 ---
 
 *Parte del portafolio de proyectos IA/ML — [adrianmoreno-dev.com](https://adrianmoreno-dev.com)*
+
+
+## Integración, datos y licencia
+
+**Licencia:** MIT (ver [LICENSE](LICENSE)) — uso libre, incluido comercial,
+manteniendo el aviso de copyright. Sin garantía ni soporte incluidos.
+
+### Exportación GeoJSON
+
+Los barrios y su score de revalorización se sirven también en **GeoJSON
+(RFC 7946)**, el formato que cualquier GIS o mapa web entiende sin conversión:
+
+```bash
+curl "http://localhost:8090/ml/revalorizacion/geojson?ciudad=madrid" -o barrios.geojson
+```
+
+Se carga por URL en QGIS, ArcGIS, Leaflet, Mapbox u OpenLayers, y se puede
+colorear directamente por la propiedad `score` — pensado para integrarlo en el
+mapa de un portal inmobiliario o en el SIG de una consultora sin escribir
+código de transformación.
+
+### Tratamiento de datos
+
+El servicio trabaja con **datos agregados por barrio** (precio/m², tendencias,
+infraestructura, licencias). No hay datos personales ni de inmuebles concretos.
+No se almacenan las consultas.
+
+**Qué sale del servidor:** nada. **Este proyecto no usa ningún proveedor de IA
+externo**: el scoring se calcula localmente. Sin claves de API ni conexión
+saliente.
+
+### Despliegue propio y costes
+
+El repositorio es la aplicación completa. Se despliega en infraestructura propia
+sin dependencias SaaS. Código gratuito (MIT); los costes son la infraestructura
+y el mantenimiento, a cargo de quien lo despliega — el autor no ofrece soporte
+ni consultoría.
