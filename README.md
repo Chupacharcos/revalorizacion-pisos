@@ -6,6 +6,34 @@ Demo en producción: [adrianmoreno-dev.com/demo/deteccion-zonas-revalorizacion](
 
 ---
 
+<!-- LOOP-MAP:START (generado por `php artisan project:loop readme` — no editar a mano) -->
+
+## El bucle que cierra
+
+<p align="center"><img src="https://adrianmoreno-dev.com/bucle/deteccion-zonas-revalorizacion.svg" alt="Mapa del bucle de Deteccion de Zonas de Revalorizacion" width="900"></p>
+
+**Para** quien busca en qué zona comprar antes de que suba · **Por zona**
+
+| Etapa | Qué pasa | Quién |
+|---|---|---|
+| **1. Disparador** | Quiero saber qué zonas de la ciudad tienen pinta de revalorizarse antes de comprar. | persona |
+| **2. Acción** | Clasifica cada zona en potencial bajo, medio o alto y propaga el score entre zonas vecinas con dos rondas de message-passing. | software |
+| **3. Medición** | La clase de potencial por zona y cómo la ha movido el contagio de las de al lado. | software |
+| **4. Decisión** | Decido en qué zonas miro vivienda y cuáles descarto de la lista. | persona |
+
+### Lo que no hace
+
+- No predice el precio ni cuánto subirá: clasifica el potencial en tres niveles.
+- No promete acierto alto: el F1 macro es 0,61 y está a la vista en la ficha.
+- No baja al portal: trabaja con zonas urbanas, no con viviendas concretas.
+
+### Por qué está construido así
+
+- **Propagar el score entre zonas vecinas** en vez de puntuar cada zona por separado — La gentrificación se contagia por los bordes: una zona pegada a otra que sube tiene más potencial que la misma zona aislada.
+- **Tres clases en vez de un número** en vez de predecir un porcentaje de revalorización — Con este acierto, dar un porcentaje sería inventarse una precisión que el modelo no tiene. Tres niveles sí aguantan el dato.
+
+<!-- LOOP-MAP:END -->
+
 ## Resultados
 
 | Métrica | Valor |
